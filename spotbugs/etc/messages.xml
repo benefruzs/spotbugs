@@ -1772,6 +1772,18 @@ factory pattern to create these objects.</p>
       ]]>
     </Details>
   </Detector>
+  <Detector class="edu.umd.cs.findbugs.detect.FindUndeclaredCheckedExceptions" >
+  <Details>
+    <![CDATA[
+          <p> Detector for checking that undeclared checked exceptions won't be thrown.</p>
+          <p>
+            There are a few techniques that are allowing to throw undeclared checked exceptions at runtime.
+            Such techniques defeat the ability of caller methods to use the throws clause to determine
+            the complete set of checked exceptions that could propagate from an invoked method.
+          </p>
+    ]]>
+  </Details>
+  </Detector>
   <!--
   **********************************************************************
   BugPatterns
@@ -8785,6 +8797,21 @@ Using floating-point variables should not be used as loop counters, as they are 
       </p>]]>
     </Details>
   </BugPattern>
+  <BugPattern type="UCE_DO_NOT_THROW_UNDECLARED_CHECKED_EXCEPTION">
+    <ShortDescription>An undeclared checked exception was thrown.</ShortDescription>
+    <LongDescription> Undeclared checked exception is thrown in {1} </LongDescription>
+    <Details>
+      <![CDATA[<p>
+        There are some techniques that allows the programmer to write code that throws undeclared checked exceptions at runtime.
+        These exceptions are not assigned to any of the exception types declared in the throws clause of the method that was invoked.
+        This can cause vulnerabilities on the code, so such techniques must not be used to throw undeclared checked exceptions.
+      </p>
+      <p>
+      See CERT Source <a href=https://wiki.sei.cmu.edu/confluence/display/java/ERR06-J.+Do+not+throw+undeclared+checked+exceptions>
+      </p>
+      ]]>
+      </Details>
+  </BugPattern>
   <!--
   **********************************************************************
    BugCodes
@@ -8938,4 +8965,5 @@ Using floating-point variables should not be used as loop counters, as they are 
   <BugCode abbrev="THROWS">Exception throwing related problems</BugCode>
   <BugCode abbrev="PERM">Custom class loader does not call its superclass's getPermissions()</BugCode>
   <BugCode abbrev="USC">Potential security check based on untrusted source</BugCode>
+  <BugCode abbrev="UCE">Undeclared checked exception</BugCode>
 </MessageCollection>
