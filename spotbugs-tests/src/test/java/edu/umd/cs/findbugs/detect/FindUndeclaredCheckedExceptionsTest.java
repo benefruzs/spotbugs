@@ -15,11 +15,12 @@ public class FindUndeclaredCheckedExceptionsTest extends AbstractIntegrationTest
         performAnalysis("ucetestfiles/UndeclaredCheckedExceptions.class", "ucetestfiles/GenericClass.class",
                 "ucetestfiles/TestClass.class", "ucetestfiles/Thr.class", "ucetestfiles/GenericClass$1.class");
 
-        assertNumOfUCEBugs(3);
+        assertNumOfUCEBugs(4);
 
         assertUCEBug("undeclaredThrow", "TestClass");
-        assertUCEBug("undeclaredThrow", "TestClass");
+        assertUCEBug("undeclaredThrow", "GenericClass");
         assertUCEBug("test2", "UndeclaredCheckedExceptions");
+        assertUCEBug("test3", "UndeclaredCheckedExceptions");
 
     }
 

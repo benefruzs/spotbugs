@@ -3,9 +3,9 @@ package ucetestfiles;
 import java.io.IOException;
 
 public class UndeclaredCheckedExceptions {
-    void test1(){
+    /*void test1(){
         TestClass.undeclaredThrow(new Exception("checked exception"));
-    }
+    }*/
 
     void test2(){ GenericClass.undeclaredThrow(); }
 

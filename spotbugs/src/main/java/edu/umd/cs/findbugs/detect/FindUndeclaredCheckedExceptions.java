@@ -26,7 +26,6 @@ import edu.umd.cs.findbugs.classfile.DescriptorFactory;
 import edu.umd.cs.findbugs.classfile.Global;
 import edu.umd.cs.findbugs.classfile.MissingClassException;
 import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
-import edu.umd.cs.findbugs.util.ClassName;
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Code;
 import org.apache.bcel.classfile.CodeException;
@@ -47,6 +46,8 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
     private final List<ExceptionCaught> catchList = new LinkedList<>();
     private final Pattern space = Pattern.compile(" ");
 
+    private XMethod prevInvoke = null;
+
     private static class ExceptionCaught {
         public String exceptionClass;
 
@@ -65,15 +66,29 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
     }
 
     private static class ExceptionThrown {
-        public @DottedClassName String exceptionClass;
+        public @DottedClassName String exceptionClassName;
+        public Set<String> superClasses;
 
         public int offset;
 
-        public ExceptionThrown(@DottedClassName String exceptionClass, int offset) {
-            this.exceptionClass = exceptionClass;
+        public ExceptionThrown(JavaClass cls, int offset) throws ClassNotFoundException {
+            this.exceptionClassName = cls.getClassName();
             this.offset = offset;
+            this.superClasses = new HashSet<>();
+            for (JavaClass superCls : cls.getSuperClasses()) {
+                this.superClasses.add(superCls.getClassName());
+            }
+        }
+
+        public boolean match(String exception) {
+            System.out.println("Exception: " + exception);
+            System.out.println("Thrown exception: " + exceptionClassName);
+            System.out.println("Exception super Classes: " + superClasses.toString());
+            return exception.equals(exceptionClassName) || superClasses.contains(exception);
         }
     }
+
+
 
     public FindUndeclaredCheckedExceptions(BugReporter bugReporter) {
         this.bugReporter = bugReporter;
@@ -92,15 +107,21 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
         case Const.ATHROW:
             if (stack.getStackDepth() > 0) {
                 OpcodeStack.Item item = stack.getStackItem(0);
-                String signature = item.getSignature();
-                if (signature != null && signature.length() > 0) {
-                    if (signature.startsWith("L")) {
-                        signature = SignatureConverter.convert(signature);
-                    } else {
-                        signature = signature.replace('/', '.');
+                try {
+                    JavaClass cls = item.getJavaClass();
+                    if (cls != null) {
+
+                        System.out.println(item.getJavaClass().getClassName() + " added to throw list by " + prevInvoke.getName());
+                        if (prevInvoke == null) {
+                            throwList.add(new ExceptionThrown(item.getJavaClass(), getPC()));
+                        } else {
+                            if (!prevInvoke.getClassName().equals("java.lang.Throwable") &&
+                                    !prevInvoke.getName().equals("addSuppressed")) {
+                                throwList.add(new ExceptionThrown(item.getJavaClass(), getPC()));
+                            }
+                        }
                     }
-                    throwList.add(new ExceptionThrown(signature, getPC()));
-                    //catchList.add(new ExceptionCaught(signature, getPC(), getMaxPC(), getPC()));
+                } catch (ClassNotFoundException ignored) {
                 }
             }
             break;
@@ -108,21 +129,31 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
         case Const.INVOKEVIRTUAL:
         case Const.INVOKESPECIAL:
         case Const.INVOKESTATIC:
+        case Const.INVOKEINTERFACE:
             String className = getClassConstantOperand();
             if (!className.startsWith("[")) {
                 try {
                     XClass c = Global.getAnalysisCache().getClassAnalysis(XClass.class,
                             DescriptorFactory.createClassDescriptor(className));
                     XMethod m = Hierarchy2.findInvocationLeastUpperBound(c, getNameConstantOperand(), getSigConstantOperand(),
-                            seen == Const.INVOKESTATIC, seen == Const.INVOKEINTERFACE);
-
+                            seen == Const.INVOKESTATIC, false);
                     if (m == null) {
                         break;
                     }
+                    prevInvoke = m;
                     String[] exceptions = m.getThrownExceptions();
                     if (exceptions != null) {
+                        System.out.println("Method: " + m.getName() + " declared to throw: " + Arrays.toString(exceptions));
                         for (String name : exceptions) {
-                            throwList.add(new ExceptionThrown(ClassName.toDottedClassName(name), getPC()));
+                            try {
+                                JavaClass excCls = Global.getAnalysisCache().getClassAnalysis(JavaClass.class,
+                                        DescriptorFactory.createClassDescriptor(name));
+                                throwList.add(new ExceptionThrown(excCls, getPC()));
+                            } catch (CheckedAnalysisException e) {
+                                bugReporter.logError("Error looking up " + name, e);
+                            } catch (ClassNotFoundException e) {
+                                bugReporter.reportMissingClass(e);
+                            }
                         }
                     }
                 } catch (MissingClassException e) {
@@ -181,17 +212,18 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
             boolean inThrowsList = false;
             for (ExceptionCaught caughtException : catchList) {
                 if (thrownException.offset >= caughtException.startOffset && thrownException.offset <= caughtException.endOffset) {
-                    if (thrownException.exceptionClass.equals(caughtException.exceptionClass) || caughtException.exceptionClass.equals(
-                            "java.lang.Throwable") || thrownException.exceptionClass.equals("java.lang.Throwable")) {
+                    System.out.println("Check if " + thrownException.exceptionClassName + " in the catch list");
+                    if (thrownException.match(caughtException.exceptionClass)) {
                         caughtException.seen = true;
                         inBothLists = true;
                         break;
                     }
                 }
             }
+            System.out.println("Check if " + thrownException.exceptionClassName + " in the throw list");
+            System.out.println("Throws list: " + throwsList);
             for (String t : throwsList) {
-                if (thrownException.exceptionClass.equals(t) || t.equals("java.lang.Exception") || thrownException.exceptionClass.equals(
-                        "java.lang.Throwable")) {
+                if (thrownException.match(t)) {
                     inThrowsList = true;
                     break;
                 }
@@ -211,12 +243,11 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
 
     @Override
     public void visit(Method method) {
-        String m[] = space.split(method.toString());
+        String[] m = space.split(method.toString());
 
         m[m.length - 1] += ",";
         int i = 0;
         int ii = 0;
-        i = 0;
         for (String s : m) {
             if (s.equals("Exceptions:")) {
                 ii = i;
