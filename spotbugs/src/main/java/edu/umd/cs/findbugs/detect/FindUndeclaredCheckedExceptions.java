@@ -81,9 +81,9 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
         }
 
         public boolean match(String exception) {
-            System.out.println("Exception: " + exception);
-            System.out.println("Thrown exception: " + exceptionClassName);
-            System.out.println("Exception super Classes: " + superClasses.toString());
+            //System.out.println("Exception: " + exception);
+            //System.out.println("Thrown exception: " + exceptionClassName);
+            //System.out.println("Exception super Classes: " + superClasses.toString());
             return exception.equals(exceptionClassName) || superClasses.contains(exception);
         }
     }
@@ -111,7 +111,7 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
                     JavaClass cls = item.getJavaClass();
                     if (cls != null) {
 
-                        System.out.println(item.getJavaClass().getClassName() + " added to throw list by " + prevInvoke.getName());
+                        //System.out.println(item.getJavaClass().getClassName() + " added to throw list by " + prevInvoke.getName());
                         if (prevInvoke == null) {
                             throwList.add(new ExceptionThrown(item.getJavaClass(), getPC()));
                         } else {
@@ -143,7 +143,7 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
                     prevInvoke = m;
                     String[] exceptions = m.getThrownExceptions();
                     if (exceptions != null) {
-                        System.out.println("Method: " + m.getName() + " declared to throw: " + Arrays.toString(exceptions));
+                        //System.out.println("Method: " + m.getName() + " declared to throw: " + Arrays.toString(exceptions));
                         for (String name : exceptions) {
                             try {
                                 JavaClass excCls = Global.getAnalysisCache().getClassAnalysis(JavaClass.class,
@@ -210,9 +210,10 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
         for (ExceptionThrown thrownException : throwList) {
             boolean inBothLists = false;
             boolean inThrowsList = false;
+
             for (ExceptionCaught caughtException : catchList) {
                 if (thrownException.offset >= caughtException.startOffset && thrownException.offset <= caughtException.endOffset) {
-                    System.out.println("Check if " + thrownException.exceptionClassName + " in the catch list");
+                    //System.out.println("Check if " + thrownException.exceptionClassName + " in the catch list");
                     if (thrownException.match(caughtException.exceptionClass)) {
                         caughtException.seen = true;
                         inBothLists = true;
@@ -220,8 +221,8 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
                     }
                 }
             }
-            System.out.println("Check if " + thrownException.exceptionClassName + " in the throw list");
-            System.out.println("Throws list: " + throwsList);
+            //System.out.println("Check if " + thrownException.exceptionClassName + " in the throw list");
+            //System.out.println("Throws list: " + throwsList);
             for (String t : throwsList) {
                 if (thrownException.match(t)) {
                     inThrowsList = true;
