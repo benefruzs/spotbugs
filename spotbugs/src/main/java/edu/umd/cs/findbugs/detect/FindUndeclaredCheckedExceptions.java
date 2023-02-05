@@ -210,7 +210,12 @@ public class FindUndeclaredCheckedExceptions extends OpcodeStackDetector impleme
         for (ExceptionThrown thrownException : throwList) {
             boolean inBothLists = false;
             boolean inThrowsList = false;
-
+            if (thrownException.superClasses.contains("java.lang.Error") || thrownException.exceptionClassName.equals("java.lang.Error")) {
+                continue;
+            }
+            if (thrownException.superClasses.contains("java.lang.RuntimeException")) {
+                continue;
+            }
             for (ExceptionCaught caughtException : catchList) {
                 if (thrownException.offset >= caughtException.startOffset && thrownException.offset <= caughtException.endOffset) {
                     //System.out.println("Check if " + thrownException.exceptionClassName + " in the catch list");
